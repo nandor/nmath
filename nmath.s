@@ -365,6 +365,7 @@ _matMultMat:
 */
 .globl _matLoadTranslation
 _matLoadTranslation:
+    /* Set the matrix to identity */
     mov edx, [esp + 4]
     xorps xmm0, xmm0
 
@@ -379,6 +380,7 @@ _matLoadTranslation:
     mov [edx +  40], eax
     mov [edx +  60], eax
 
+    /* Place the translation vector */
     mov eax, [esp + 8]
     mov [edx + 48], eax
 
@@ -387,5 +389,37 @@ _matLoadTranslation:
 
     mov eax, [esp + 16]
     mov [edx + 56], eax
+
+    ret
+
+/**
+    Load a rotation matrix
+*/
+.globl _matLoadRotationX
+_matLoadRotationX:
+    /* Set the matrix to identity */
+    mov edx, [esp + 4]
+    xorps xmm0, xmm0
+
+    movaps [edx], xmm0
+    movaps [edx + 0x10], xmm0
+    movaps [edx + 0x20], xmm0
+    movaps [edx + 0x30], xmm0
+
+    mov eax, [cstFpOne]
+    mov [edx +   0], eax
+    mov [edx +  60], eax
+
+    /* Place the rotation stuff */
+    fld dword ptr [esp + 8]
+    fsincos
+    fstp dword ptr [edx + 40]
+    fst dword ptr [edx + 24]
+    fldz
+    fsubr
+    fstp dword ptr[edx + 36]
+
+    mov eax, [edx + 40]
+    mov [edx + 20], eax
 
     ret

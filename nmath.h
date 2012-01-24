@@ -46,8 +46,10 @@
 typedef float __attribute__((aligned(16))) mat[16];
 typedef float __attribute__((aligned(16))) vec[4];
 
-#define ERR_NO_ERROR                0x00
-#define ERR_SSE_NOT_SUPPORTED       0x20
+#define NMATH_PI                    3.141592
+
+#define NMATH_ERR_NO_ERROR                0x00
+#define NMATH_ERR_SSE_NOT_SUPPORTED       0x20
 
 /**
     Initialise the math library
@@ -147,6 +149,15 @@ extern void __cdecl matLoadIdentity(mat m);
     @param z            Translation on z
 */
 extern void __cdecl matLoadTranslation(mat m, float x, float y, float z);
+
+
+/**
+    Load a rotation matrix around the x axis
+
+    @param m            Matrix
+    @param f            Angle
+*/
+extern void __cdecl matLoadRotationX(mat m, float f);
 
 /**
     Load a scaling matrix
