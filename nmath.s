@@ -1,6 +1,6 @@
 /**
     @file
-    @author Licker Nandor licker.nandor@gmail.com
+    @author Licker Nandor <licker.nandor@gmail.com>
     @version 0.1a
 
     @section LICENSE
@@ -19,33 +19,33 @@
     THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
     IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
     WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+
 */
 .intel_syntax noprefix
-.align 2
 
 .data
-cstFpOne: .float 1
 
-.text
+    fpEPS:          .float 0f1e-5
+    fpCst0:         .float 0f0.0
+    fpCst1:         .float 0f1.0
+    fpCstN1:        .float 0f-1.0
+    fpCst180:       .float 0f180.0
 /*
     Init the library
 */
 .globl _mathInit
 _mathInit:
     finit
-
     cpuid
 
     test edx, 25
-    jz _mathInitEnd
+    jz 1f
 
-    fld1
-    fst dword ptr [cstFpOne]
 
     mov eax, dword ptr 0
     ret
 
-    _mathInitEnd:
+    1:
         mov eax, dword ptr 20
         ret
 
@@ -55,14 +55,16 @@ _mathInit:
 .globl _matLoadIdentity
 _matLoadIdentity:
     mov edx, [esp + 4]
-    xorps xmm0, xmm0
+
+    movss xmm0, [fpCst0]
+    shufps xmm0, xmm0, 0
 
     movaps [edx], xmm0
     movaps [edx + 0x10], xmm0
     movaps [edx + 0x20], xmm0
     movaps [edx + 0x30], xmm0
 
-    mov eax, [cstFpOne]
+    mov eax, [fpCst1]
     mov [edx +   0], eax
     mov [edx +  20], eax
     mov [edx +  40], eax
@@ -78,7 +80,8 @@ _matLoadZero:
 
     mov edx, [esp + 4]
 
-    xorps xmm0, xmm0
+    movss xmm0, [fpCst0]
+    shufps xmm0, xmm0, 0
 
     movaps [edx], xmm0
     movaps [edx + 0x10], xmm0
@@ -187,16 +190,16 @@ _matCmp:
     mov edi, [esp + 20]
 
     mov ecx, 16
-    _matCmpLoop:
+    1:
         mov ebx, [esi]
         xor ebx, edi
 
-        jnz _matCmpLoopNotEqu
+        jnz 2f
 
         add esi, 4
         add edi, 4
 
-    loop _matCmpLoop
+    loop 1b
     mov eax, 1
 
     pop edi
@@ -204,7 +207,7 @@ _matCmp:
     pop ebx
     ret
 
-    _matCmpLoopNotEqu:
+    2:
         mov eax, 0
         pop edi
         pop esi
@@ -230,8 +233,11 @@ _vecLoadScalar:
 _vecLoadZero:
     mov edx, [esp + 4]
 
-    xorps xmm0, xmm0
+    movaps xmm0, [fpCst0]
+    shufps xmm0, xmm0, 0
     movaps [edx], xmm0
+
+    ret
 
 /*
     Compare two vectors
@@ -240,32 +246,41 @@ _vecLoadZero:
 _vecCmp:
     mov edx, [esp + 4]
     movaps xmm0, [edx]
-
     mov edx, [esp + 8]
     movaps xmm1, [edx]
 
-    xorps xmm0, xmm1
+    subps xmm0, xmm1
+    movaps xmm1, xmm0
 
-    pextrw eax, xmm0, 0
-    test eax, eax
-    jnz _vecCompNotEqu
+    movss xmm2, [fpCstN1]
+    shufps xmm2, xmm2, 0
+    mulps xmm1, xmm2
+    maxps xmm1, xmm0
 
-    pextrw eax, xmm0, 1
-    test eax, eax
-    jnz _vecCompNotEqu
+    movss xmm0, [fpEPS]
+    shufps xmm0, xmm0, 0
+    cmpleps xmm1, xmm0
 
-    pextrw eax, xmm0, 2
+    pextrw eax, xmm1, 0
     test eax, eax
-    jnz _vecCompNotEqu
+    jz 1f
 
-    pextrw eax, xmm0, 3
+    pextrw eax, xmm1, 1
     test eax, eax
-    jnz _vecCompNotEqu
+    jz 1f
+
+    pextrw eax, xmm1, 2
+    test eax, eax
+    jz 1f
+
+    pextrw eax, xmm1, 3
+    test eax, eax
+    jz 1f
 
     mov eax, dword ptr 1
     ret
 
-    _vecCompNotEqu:
+    1:
         mov eax, dword ptr 0
         ret
 
@@ -333,7 +348,7 @@ _matMultMat:
     mov ebx, 0
     mov ecx, 4
 
-    _matMultLoop:
+    1:
         movaps xmm0, [eax + ebx]
         shufps xmm0, [eax + ebx], 0
         mulps xmm0, [edx]
@@ -355,7 +370,7 @@ _matMultMat:
 
         movaps [eax + ebx], xmm0
         add ebx, 0x10
-        loop _matMultLoop
+        loop 1b
 
     pop ebx
     ret
@@ -374,7 +389,7 @@ _matLoadTranslation:
     movaps [edx + 0x20], xmm0
     movaps [edx + 0x30], xmm0
 
-    mov eax, [cstFpOne]
+    mov eax, [fpCst1]
     mov [edx +   0], eax
     mov [edx +  20], eax
     mov [edx +  40], eax
@@ -397,29 +412,26 @@ _matLoadTranslation:
 */
 .globl _matLoadRotationX
 _matLoadRotationX:
-    /* Set the matrix to identity */
     mov edx, [esp + 4]
-    xorps xmm0, xmm0
+
+    movss xmm0, [fpCst0]
+    shufps xmm0, xmm0, 0
 
     movaps [edx], xmm0
     movaps [edx + 0x10], xmm0
     movaps [edx + 0x20], xmm0
     movaps [edx + 0x30], xmm0
 
-    mov eax, [cstFpOne]
+    mov eax, [fpCst1]
     mov [edx +   0], eax
     mov [edx +  60], eax
 
-    /* Place the rotation stuff */
     fld dword ptr [esp + 8]
     fsincos
+    fst dword ptr[edx + 20]
     fstp dword ptr [edx + 40]
     fst dword ptr [edx + 24]
-    fldz
-    fsubr
+    fchs
     fstp dword ptr[edx + 36]
-
-    mov eax, [edx + 40]
-    mov [edx + 20], eax
 
     ret
