@@ -21,6 +21,7 @@
     WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
 
 */
+
 .intel_syntax noprefix
 
 .data
@@ -164,20 +165,6 @@ _matCopy:
     ret
 
 /*
-    Multiply two matrixes
-*/
-.globl _matMult
-_matMult:
-    push esi
-    push edi
-
-    mov edi, [esp + 12]
-    mov esi, [esp + 16]
-
-    pop edi
-    pop esi
-    ret
-/*
     Compare two matrixes
 */
 .globl _matCmp
@@ -189,28 +176,56 @@ _matCmp:
     mov esi, [esp + 16]
     mov edi, [esp + 20]
 
-    mov ecx, 16
+    mov ecx, 4
+    mov ebx, 0
+
     1:
-        mov ebx, [esi]
-        xor ebx, edi
+        movaps xmm0, [esi + ebx]
+        movaps xmm1, [edi + ebx]
 
-        jnz 2f
+        subps xmm0, xmm1
+        movaps xmm1, xmm0
 
-        add esi, 4
-        add edi, 4
+        movss xmm2, [fpCstN1]
+        shufps xmm2, xmm2, 0
+        mulps xmm1, xmm2
+        maxps xmm1, xmm0
 
-    loop 1b
-    mov eax, 1
+        movss xmm0, [fpEPS]
+        shufps xmm0, xmm0, 0
+        cmpleps xmm1, xmm0
+
+        pextrw eax, xmm1, 0
+        test eax, eax
+        jz 2f
+
+        pextrw eax, xmm1, 2
+        test eax, eax
+        jz 2f
+
+        pextrw eax, xmm1, 4
+        test eax, eax
+        jz 2f
+
+        pextrw eax, xmm1, 6
+        test eax, eax
+        jz 2f
+
+        add ebx, dword ptr 0x10
+        loop 1b
 
     pop edi
     pop esi
     pop ebx
+    mov eax, dword ptr 1
     ret
 
     2:
-        mov eax, 0
         pop edi
         pop esi
+        pop ebx
+
+        mov eax, dword ptr 0
         ret
 
 /*
@@ -265,15 +280,15 @@ _vecCmp:
     test eax, eax
     jz 1f
 
-    pextrw eax, xmm1, 1
-    test eax, eax
-    jz 1f
-
     pextrw eax, xmm1, 2
     test eax, eax
     jz 1f
 
-    pextrw eax, xmm1, 3
+    pextrw eax, xmm1, 4
+    test eax, eax
+    jz 1f
+
+    pextrw eax, xmm1, 6
     test eax, eax
     jz 1f
 
@@ -408,7 +423,7 @@ _matLoadTranslation:
     ret
 
 /**
-    Load a rotation matrix
+    Load a rotation matrix (X)
 */
 .globl _matLoadRotationX
 _matLoadRotationX:
@@ -433,5 +448,62 @@ _matLoadRotationX:
     fst dword ptr [edx + 24]
     fchs
     fstp dword ptr[edx + 36]
+
+    ret
+
+# Load a rotation matrix (Y)
+
+.globl _matLoadRotationY
+_matLoadRotationY:
+    mov edx, [esp + 4]
+
+    movss xmm0, [fpCst0]
+    shufps xmm0, xmm0, 0
+
+    movaps [edx], xmm0
+    movaps [edx + 0x10], xmm0
+    movaps [edx + 0x20], xmm0
+    movaps [edx + 0x30], xmm0
+
+    mov eax, [fpCst1]
+    mov [edx +  20], eax
+    mov [edx +  60], eax
+
+    fld dword ptr [esp + 8]
+    fsincos
+    fst dword ptr[edx]
+    fstp dword ptr [edx + 40]
+    fst dword ptr [edx + 32]
+    fchs
+    fstp dword ptr[edx + 8]
+
+    ret
+
+
+# Load a rotation matrix (Z)
+
+.globl _matLoadRotationZ
+_matLoadRotationZ:
+    mov edx, [esp + 4]
+
+    movss xmm0, [fpCst0]
+    shufps xmm0, xmm0, 0
+
+    movaps [edx], xmm0
+    movaps [edx + 0x10], xmm0
+    movaps [edx + 0x20], xmm0
+    movaps [edx + 0x30], xmm0
+
+    mov eax, [fpCst1]
+    mov [edx +  40], eax
+    mov [edx +  60], eax
+
+    fld dword ptr [esp + 8]
+    fsincos
+    fst dword ptr[edx]
+    fstp dword ptr [edx + 20]
+    fst dword ptr [edx + 4]
+    fchs
+    fstp dword ptr[edx + 16]
 
     ret
